@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Document {
+  id            String      @id @default(uuid())
+  name          String               // Original filename
+  displayName   String?              // User-facing name
+  path          String
+  mimeType      String
+  userId        String      @default("user_123")
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id])
+  folderId      String?
+  folder        Folder?     @relation(fields: [folderId], references: [id])
+  status        String      @default("Uploaded")
+  createdAt     DateTime    @default(now())
+  // Soft delete: when set, the document is in the Trash and excluded from normal queries.
+  deletedAt     DateTime?
+  deletedByUserId String?
+  // Searchable index: lowercase concatenation of name, displayName, labels,
+  // uploader name, department, folder name, and (for text mimes) extracted body.
+  searchTokens  String?
+  indexedAt     DateTime?
+  labels        Label[]
+  permissions   DocumentPermission[]
+}
+
+model Label {
+  id        String     @id @default(uuid())
+  name      String
+  userId    String
+  documents Document[]
+
+  @@unique([name, userId])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  userId       String
+  action       String   // LOGIN, FILE_VIEW, FILE_RENAME, TAG_FILTER, SEARCH_EXECUTE, FILE_DELETE
+  metadata     String?  // JSON string
+  ip           String?
+  userAgent    String?
+  departmentId String?
+  timestamp    DateTime @default(now())
+}
+
+model TenantSettings {
+  id                      String  @id @default("global")
+  watermarkingEnabled     Boolean @default(false)
+  antiScreenshotBlur      Boolean @default(false)
+}
+
+model DocumentPermission {
+  id                String    @id @default(uuid())
+  documentId        String
+  document          Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  sharedWithUserId  String
+  permissionLevel   String    // "VIEW" or "EDIT"
+  sharedAt          DateTime  @default(now())
+  expiresAt         DateTime?
+
+  @@unique([documentId, sharedWithUserId])
+}
+
+model User {
+  id            String           @id @default(uuid())
+  name          String
+  email         String           @unique
+  role          String           @default("USER") // ADMIN, SUB_ADMIN, HOD, USER (SUB_ADMIN = ADMIN minus Security Vault)
+  password_hash String
+  last_login_at DateTime?
+  last_login_ip String?
+  departments   UserDepartment[]
+  sessions      ActiveSession[]
+}
+
+model ActiveSession {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  token_hash String
+  ip_address String?
+  user_agent String?
+  created_at DateTime @default(now())
+  expires_at DateTime
+
+  @@map("Active_Sessions")
+}
+
+model SecurityLog {
+  id         String   @id @default(uuid())
+  action     String   // "USER_LOGIN_SUCCESS" or "USER_LOGIN_FAILED"
+  ip_address String?
+  user_id    String?  // nullable since user might not exist on failed login
+  created_at DateTime @default(now())
+
+  @@map("Security_Logs")
+}
+
+
+model Department {
+  id        String   @id @default(uuid())
+  name      String
+  tenantId  String   @default("tenant_1")
+  // Default permission preset id (e.g. "viewer", "contributor", "editor",
+  // "manager", "full"). When set, new members of this department inherit
+  // that preset's permissions on assignment unless overridden. See
+  // PERMISSION_PRESETS in src/lib/permissions.ts.
+  defaultPermissionPreset String?
+  users     UserDepartment[]
+  documents Document[]
+  folders   Folder[]
+}
+
+model UserDepartment {
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  role         String     @default("MEMBER") // MEMBER, HOD
+  isPrimary    Boolean    @default(false)
+  // CSV of permission codes: VIEW, EDIT, DELETE, PRINT, UPLOAD
+  permissions  String     @default("VIEW,UPLOAD")
+
+  @@id([userId, departmentId])
+}
+
+model Folder {
+  id           String              @id @default(uuid())
+  name         String
+  departmentId String
+  department   Department          @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  userId       String
+  // Self-relation for nested sub-folders. Top-level folders have a null parentId.
+  parentId     String?
+  parent       Folder?             @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children     Folder[]            @relation("FolderTree")
+  documents    Document[]
+  permissions  FolderPermission[]
+  createdAt    DateTime            @default(now())
+  // Soft delete: when set, the folder is in the Trash and excluded from normal queries.
+  // Auto-purged after the recovery window (see TRASH_RETENTION_DAYS in src/lib/trash.ts).
+  deletedAt        DateTime?
+  deletedByUserId  String?
+}
+
+model FolderPermission {
+  id                String    @id @default(uuid())
+  folderId          String
+  folder            Folder    @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  sharedWithUserId  String
+  permissionLevel   String    // "VIEW" or "EDIT"
+  sharedAt          DateTime  @default(now())
+  expiresAt         DateTime?
+  grantedByUserId   String?
+
+  @@unique([folderId, sharedWithUserId])
+}

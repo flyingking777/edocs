@@ -1,0 +1,19 @@
+# Python dependencies for the background workers (`worker.py`, `billing_worker.py`).
+#
+# Install with:
+#     pip install -r requirements.txt
+#
+# Notes:
+#   * The `elasticsearch` major version MUST match the Elasticsearch server
+#     you're running against. The Node side pins `@elastic/elasticsearch ^9`,
+#     so we pin the Python client to the same major.
+#   * `pytesseract` is a thin wrapper — you ALSO need the Tesseract binary
+#     installed on the host (apt-get install tesseract-ocr on Debian/Ubuntu,
+#     `brew install tesseract` on macOS, or the Windows installer). Point
+#     the worker at it with the TESSERACT_CMD env var if it isn't on PATH.
+
+redis==5.0.8
+pytesseract==0.3.13
+Pillow==10.4.0
+pycryptodome==3.20.0
+elasticsearch>=9.0.0,<10.0.0
