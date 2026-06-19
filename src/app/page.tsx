@@ -780,7 +780,7 @@ function DocumentManagementCenter() {
           `${documents} document${documents === 1 ? '' : 's'}. ` +
           `Move or delete that content first, then try again.`,
         confirmLabel: 'OK',
-        cancelLabel: null,
+        cancelLabel: undefined,
         tone: 'warning'
       });
       return;
