@@ -94,7 +94,13 @@ export async function DELETE(
     const dept = await prisma.department.findUnique({
       where: { id },
       include: {
-        _count: { select: { folders: true, documents: true, users: true } }
+        _count: {
+          select: {
+            folders: { where: { deletedAt: null } },
+            documents: { where: { deletedAt: null } },
+            users: true
+          }
+        }
       }
     });
     if (!dept) {
