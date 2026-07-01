@@ -21,7 +21,7 @@ export const config = {
   matcher: ['/api/:path*']
 };
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   if (!MUTATING.has(req.method)) return NextResponse.next();
 
   const host = req.headers.get('host');

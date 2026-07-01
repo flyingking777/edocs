@@ -87,6 +87,13 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
   },
+  experimental: {
+    // The proxy (CSRF middleware) causes Next.js to buffer the entire request
+    // body so it's available in both the proxy AND the route handler. The
+    // default cap is 10 MB — anything larger gets truncated, which breaks
+    // multipart/form-data parsing in the upload route. Match the upload limit.
+    proxyClientMaxBodySize: '209715200', // 200 MB
+  },
   async headers() {
     return [
       {
